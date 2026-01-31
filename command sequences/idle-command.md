@@ -1,38 +1,41 @@
+
 # Idle Command Sequence
 ```mermaid
 sequenceDiagram
-    actor Operator
     participant MCC/GS
-    box FINCH
         participant RF
         participant OBC 
         participant ADCS
         participant PAY
-    end
 
-    OBC ->> ADCS: Cmd OrientSC <br> (parameter = attitudeSunPointing)
-    ADCS ->> ADCS: ExecuteOrient <br> (parameter = attitudeSunPointing)
-    ADCS -->> OBC: Fbk OrientSC <br> (status = Success)
-    OBC ->> OBC: SystemHealthCheck
 
-    loop Wait for Ping
-        OBC ->> OBC: CheckScheduled
-        opt Scheduled Mode Change
-            rect rgb(54,74,63)
-              	Operator -> PAY: Enter <schMode> Mode <br> (parameter = <modeParams>)
+    OBC ->> ADCS: CmdADCSmode("Sunpointing")
+    ADCS ->> ADCS: Execute("Sunpointing")
+    ADCS ->> OBC: FbkADCSExecute("Sunpointing")
+
+    par 
+        alt Mode Change Request
+            MCC/GS ->> RF: SchCmd(Command,Time)
+            RF ->> OBC: TransmitSchCmd("    ")
+            OBC ->> OBC: SchCmd(    )
+         else Command Request
+            MCC/GS ->> RF: SchModeChange(mode,time)
+            RF ->> OBC: TransmitSchModeChange(mode,time)
+            OBC ->> OBC: SchModeChange(mode,time)
+        end
+    and
+
+        loop Wait for Ping
+            OBC ->> OBC: CheckScheduledMode()
+            OBC ->> OBC: CheckScheduledCmd() 
+            opt
+                alt Scheduled Mode Change
+                     OBC ->> OBC: Entermode(scheduledmode)
+                else Scheduled Command
+                    OBC ->> OBC: ExecuteCmd(Command)
+                end
             end
         end
     end
-
-    Operator ->> MCC/GS: Cmd ModeChange <br> (parameter = cmdMode, <br> modeParams, schedule)
-    MCC/GS ->> RF: TransmitCmd ModeChange <br> (parameter = cmdMode, <br> modeParams, schedule)
-        RF ->> OBC: TransmitCmd ModeChange <br> (parameter = cmdMode, <br> modeParams, schedule)
-        alt Scheduling
-            OBC ->> OBC: ScheduleModeChange <br> (parameter = cmdMode, <br> modeParams, schedule)
-        else Now
-            rect rgb(54,74,63)
-                Operator -> PAY: Enter <cmdMode> Mode <br> (parameter = <modeParams>)
-            end
-        end
-
+ 
 ```
