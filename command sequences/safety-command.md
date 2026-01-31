@@ -1,61 +1,55 @@
 # Safety Command Sequence 
 ```mermaid
 sequenceDiagram
-    Actor Operator
+    actor Operator
     participant MCC/GS
     box FINCH
-	participant RF
-    	participant OBC
-    	participant ADCS
-    	participant PAY
-	end
-
-    OBC -) PAY: Cmd PAY_Safety ()
-    PAY ->> PAY: Safety_PowerOff
-  
-    OBC ->> ADCS: Cmd ADCS_Safety ()
-    ADCS ->> ADCS: Safety_<?>
-    ADCS -->> OBC: Fbk ADCS_Safety <br> (status = CmdRecieved)
-
-
-    OBC ->> OBC: Safety_<?>
-
-    loop Wait for Ping
-        Operator -> PAY: 
+        participant RF
+        participant OBC
+        participant ADCS
+        participant PAY
     end
-	
-	alt Operator comamnds "Safety" mode exit
-		Operator ->> MCC/GS: Cmd ExitSafety ()
-		MCC/GS ->> RF: TransmitCmd ExitSafety ()
-		RF ->> OBC: TransmitCmd ExitSafety ()
 
- 	   OBC ->> PAY: Cmd PAY_ExitSafety ()
-	    PAY ->> PAY: ExitSafety_PowerUp
-	    PAY -->> OBC: Fbk PAY_ExitSafety <br> (status = CmdRecieved)
-  
- 	   OBC ->> ADCS: Cmd ADCS_ExitSafety ()
-	    ADCS ->> ADCS: ExitSafety_<?>
-	    ADCS -->> OBC: Fbk ADCS_ExitSafety <br> (status = CmdRecieved)
+    %% Enter Safety Mode
+    OBC ->> OBC: enter_mode("safety")
 
-		OBC ->> OBC: SystemHealthCheck
+    OBC ->> PAY: cmd_pay_off()
+    PAY ->> PAY: pay_turn_off()
+    PAY ->> OBC: fbk_pay_off()
 
-		par
-			OBC -->> RF: Fbk ExitSafety <br> (status = Success)
-			RF -->> MCC/GS: TransmitFbk ExitSafety <br> (status = Success)
-			MCC/GS -->> Operator: TransmitFbk ExitSafety <br> (status = Success)
-		and
-			rect rgb(54,74,63)
-				Operator -> PAY: Enter "Idle" Mode
-			end
-		end
-	else else
-		Operator ->> MCC/GS: Cmd CheckError ()
-		MCC/GS ->> RF: TransmitCmd CheckError ()
-		RF ->> OBC: TransmitCmd CheckError ()
-		OBC ->> OBC: GetErrorInformation
-		OBC -->> RF: Fbk CheckError <br> (parameter = ErrorInformation)
-		RF -->> MCC/GS: TransmitFbk CheckError <br> (parameter = ErrorInformation)
-		MCC/GS -->> Operator: TransmitFbk CheckError <br> (parameter = ErrorInformation)
-		note over OBC: need to indicate return <br> to loop waiting for ping (N)
-	end
+    OBC ->> ADCS: cmd_adcs_off()
+    ADCS ->> ADCS: adcs_off()
+    ADCS ->> OBC: fbk_adcs_off()
+
+    %% Error Monitoring Loop (includes MCC/GS)
+    loop Receives Ping
+        MCC/GS ->> RF: cmd_check_error()
+        RF ->> OBC: transmit_check_error()
+        OBC ->> OBC: get_error_info()
+        OBC ->> RF: send_error_info(error_info)
+        RF ->> MCC/GS: transmit_error_info(error_info)
+
+        MCC/GS ->> RF: error_handler(command)
+        RF ->> OBC: transmit_error_handler(command)
+        OBC ->> OBC: execute_error_handler(command)
+
+        %% Optional exit inside the loop
+        opt Operator Commands Safety Exit After Handling Errors
+            MCC/GS ->> RF: cmd_exit_safety()
+            RF ->> OBC: transmit_exit_safety()
+
+            OBC ->> PAY: cmd_pay_on()
+            PAY ->> PAY: pay_turn_on()
+            PAY ->> OBC: fbk_pay_on()
+
+            OBC ->> ADCS: cmd_adcs_on()
+            ADCS ->> ADCS: adcs_turn_on()
+            ADCS ->> OBC: fbk_adcs_on()
+
+            OBC ->> RF: fbk_exit_safety()
+            RF ->> MCC/GS: transmit_fbk_exit_safety()
+
+            OBC ->> OBC: enter_mode("idle")
+        end
+    end
 ```
