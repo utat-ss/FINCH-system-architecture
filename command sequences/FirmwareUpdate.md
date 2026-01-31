@@ -1,7 +1,6 @@
 # Firmware Update Command Sequence 
 ```mermaid
 sequenceDiagram
-    Actor Operator
     participant MCC/GS
     box FINCH
         participant RF
