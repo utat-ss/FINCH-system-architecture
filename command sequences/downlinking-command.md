@@ -3,7 +3,6 @@
 
 sequenceDiagram
 
-    actor Operator
     participant MCC/GS
     box FINCH
         participant RF
